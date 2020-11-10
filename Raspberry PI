@@ -1,0 +1,97 @@
+import socket
+import numpy as np
+import time
+import threading
+import serial
+import queue
+
+
+class client_0(object):
+
+    def __init__(self):
+        self.s = socket.socket() 
+        self.ser = serial.Serial("/dev/ttyAMA0", 115200)
+        self.ser.flushInput()
+        try:
+            self.s.connect(('127.0.0.1', 8712))
+        except ConnectionRefusedError:
+            print('connecting')
+            time.sleep(5)
+            try:
+                self.s.connect(('127.0.0.1', 8712))
+            except ConnectionRefusedError:
+                print('connecting')
+                time.sleep(5)
+                self.c = client_0()
+        self.order = 'off'
+
+        send = threading.Thread(target=self.send)
+        recv = threading.Thread(target=self.recv)
+        # measure = threading.Thread(target=self.measure)
+        # measure.start()
+        recv.start()
+        send.start()
+
+    def measure(self):
+        global Q
+        while True:
+            count = self.ser.inWaiting()
+            if count != 0:
+                recv = self.ser.read(count)
+                print(str(recv, encoding='utf8'))
+                Q.put(recv)
+                print(Q)
+                self.ser.flushInput()
+            time.sleep(0.1)
+
+    def send(self):
+        while True:
+            global Q
+            rasp = '0'
+            try:
+                self.s.sendall(rasp.encode('utf8'))
+            except ConnectionResetError:
+                time.sleep(5)
+                self.c = client_0
+            time.sleep(2)
+            if self.order == 'off':
+                # while Q.empty():
+                #     time.sleep(2)
+                #     pass
+                    # data = str(int(np.random.rand() * 100 % 100))
+                data = str(int(np.random.rand() * 100 % 100)) #add some error manually, help my superviser to ask me some question
+                # data = str(Q.get(), encoding='utf8')
+                try:
+                    self.s.sendall(data.encode('utf8'))
+                except ConnectionResetError:
+                    time.sleep(5)
+                    c = client_0
+                print('send')
+            if self.order == 'on':
+                data = '0'
+                self.s.sendall(data.encode('utf8'))
+                print(0)
+            time.sleep(0.1)
+
+    def recv(self):
+        while True:
+            try:
+                self.order = self.s.recv(1024).decode('utf8')
+            except ConnectionResetError:
+                time.sleep(5)
+                c = client_0
+            print("order = " + self.order)
+            if self.order != 'on':
+                self.order = 'off'
+                print("order = " + self.order)
+
+
+
+
+global Q
+Q = queue.Queue()
+try:
+    c = client_0()
+except:
+    c = client_0()
+
